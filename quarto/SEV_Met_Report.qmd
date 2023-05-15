@@ -1,0 +1,152 @@
+---
+title: "SEV Meteorology Report for past 7 days"
+author: "KM Hall"
+format: 
+  html:
+    embed-resources: true
+editor: visual
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(kableExtra)
+ 
+# year of data to process
+two_digit_year_to_process <- '23'     # 2-digit year as character
+year_to_process <- 2023               # 4-digit year as numeric
+
+
+# read-in met data
+met <- read_csv(paste0("~/Documents/SEV/Projects/Meteorological_Data_Processing_GDrive/data_output_files/hourly_filtered_", two_digit_year_to_process, ".csv"),
+                guess_max = 1000000) %>% 
+  filter(year == year_to_process) %>% 
+  select(sta:minair, ppt) %>% 
+  mutate(sta = as.factor(sta)) %>% 
+  # filter bad airt, minair, and maxair values for station 42
+  mutate(airt = ifelse(airt < -39.8, NA, airt),
+         minair = ifelse(minair < -39.8, NA, minair),
+         maxair = ifelse(maxair < -39.8, NA, maxair))
+```
+
+```{r, echo=FALSE}
+# calculate some dates of interest
+report_date = today()
+report_start_date = today() - 8
+report_end_date = today() - 1
+
+# showing the most recent data in data from SEV Field Station wireless
+max_date_in_data <- max(met$date)
+```
+
+--------------------------
+
+
+**Date of Report: `r report_date`**
+
+**This report covers the previous 7-days from `r report_start_date` to `r report_end_date`.** If data are not present in the report for all of the past 7 days, it is either because there are problems with data collection or the wireless data has not yet been received by the SEV Field Station as of the production of this report.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# calculate daily summary information
+met_summary <- met %>% 
+  filter(date >= report_start_date & date <= report_end_date) %>% 
+  group_by(sta, date) %>% 
+  summarize(Precipitation = round(sum(ppt, na.rm = TRUE), 3),
+            Mean_Temperature = round(mean(airt, na.rm = TRUE), 3),
+            Minimum_Temperature = round(min(minair, na.rm = TRUE), 3),
+            Maximum_Temperature = round(max(maxair, na.rm = TRUE), 3),
+            Number_of_Hourly_Records = n(),
+            
+            # some logic to get rid of situations where all data is bad or not collected
+            Precipitation = ifelse(Precipitation %in% c(NaN, Inf, -Inf), NA, Precipitation),
+            Mean_Temperature = ifelse(Mean_Temperature %in% c(NaN, Inf, -Inf), NA, Mean_Temperature),
+            Minimum_Temperature = ifelse(Minimum_Temperature %in% c(NaN, Inf, -Inf), NA, Minimum_Temperature),
+            Maximum_Temperature = ifelse(Maximum_Temperature %in% c(NaN, Inf, -Inf), NA, Maximum_Temperature)) %>% 
+  rename(Station = sta, Date = date) %>% 
+  ungroup()
+
+
+# create long version of data for graphing
+met_summary_l <- met_summary %>% 
+  pivot_longer(Precipitation:Number_of_Hourly_Records, names_to = "variable", values_to = "value")
+  
+```
+
+```{r, echo=FALSE}
+
+# function to graph all stations by variable 
+plot_x_var <- function(data, variable) {
+  data %>% 
+    select(Station, Date, {{ variable }}) %>% 
+    ggplot(., aes(x = Date, y = {{ variable }}, color = Station)) +
+    geom_line() +
+    facet_wrap(~ Station) +
+    labs(title = paste("Variable: ", as_label(enquo(variable)))) +
+    theme_minimal() +
+    theme(legend.position="none")
+}
+
+# function to graph all variables by station - data in long format as input 
+plot_all_x_sta <- function(data, station) {
+  data %>% 
+    filter(Station == {{ station }}) %>% 
+    select(Station, Date, variable, value) %>%
+    ggplot(., aes(x = Date, y = value, color = variable)) +
+    geom_line() +
+    facet_wrap(~ variable, scales = "free_y") +
+    labs(title = paste("Station: ", as_label(enquo(station)))) +
+    theme_minimal() +
+    theme(legend.position="none")
+
+}
+```
+
+## Plots of previous 7-days by variable:    
+
+```{r, echo=FALSE, warning=FALSE}
+# Plots by station for all variables
+plot_x_var(met_summary, Precipitation)
+plot_x_var(met_summary, Mean_Temperature)
+plot_x_var(met_summary, Minimum_Temperature)
+plot_x_var(met_summary, Maximum_Temperature)
+```
+
+## Plots of previous 7-days for all variables by station:  
+
+```{r, echo=FALSE, warning=FALSE}
+plot_all_x_sta(met_summary_l, 1)
+plot_all_x_sta(met_summary_l, 40)
+plot_all_x_sta(met_summary_l, 41)
+plot_all_x_sta(met_summary_l, 42)
+# plot_all_x_sta(met_summary_l, 43)     # commented out because 43 is no longer working
+plot_all_x_sta(met_summary_l, 44)
+plot_all_x_sta(met_summary_l, 45)
+plot_all_x_sta(met_summary_l, 48)
+plot_all_x_sta(met_summary_l, 49)
+plot_all_x_sta(met_summary_l, 50)
+
+```
+
+## Meteorological summary tables by station for past 7-days:  
+
+```{r, echo=FALSE, warning=FALSE}
+# summary tables by station
+
+# function to create summary tables
+summary_table_fxn <- function(data, station) {
+  data %>% 
+    filter(Station == station) %>% 
+    kbl() %>% 
+    kable_styling()
+}
+
+summary_table_fxn(met_summary, 1)
+summary_table_fxn(met_summary, 40)
+summary_table_fxn(met_summary, 41)
+summary_table_fxn(met_summary, 42)
+summary_table_fxn(met_summary, 44)
+summary_table_fxn(met_summary, 45)
+summary_table_fxn(met_summary, 48)
+summary_table_fxn(met_summary, 49)
+summary_table_fxn(met_summary, 50)
+```
