@@ -24,9 +24,9 @@ met <- read_csv(paste0("~/Documents/SEV/Projects/Meteorological_Data_Processing_
   select(sta:minair, ppt) %>% 
   mutate(sta = as.factor(sta)) %>% 
   # filter bad airt, minair, and maxair values for station 42
-  mutate(airt = ifelse(airt < -39.8, NA, airt),
-         minair = ifelse(minair < -39.8, NA, minair),
-         maxair = ifelse(maxair < -39.8, NA, maxair))
+  mutate(airt = ifelse(airt < -39.9, NA, airt),
+         minair = ifelse(minair < -39.9, NA, minair),
+         maxair = ifelse(maxair < -39.9, NA, maxair))
 ```
 
 ```{r, echo=FALSE}
